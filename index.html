@@ -55,6 +55,7 @@
     let renderer, scene, camera, controls, material, volconfig, cmtextures;
 
     let modelPath = './data/nrrd_data/ID00423637202312137826377_gt_mask.nrrd';
+    let modelPath1 = './data/nrrd_data/ID00423637202312137826377_mask.nrrd';
 
     volconfig = {clim1: 0, clim2: 1, renderstyle: 'iso', isothreshold: 0.15, colormap: 'red'};
 
@@ -70,7 +71,7 @@
         createControl();
 
         // Load the data ...
-        loadNRRD(modelPath);
+        loadNRRD(modelPath,modelPath1);
 
         window.addEventListener('resize', onWindowResize);
     }
@@ -102,7 +103,7 @@
         controls.update();
     }
 
-    function loadNRRD(modelPath) {
+    function loadNRRD(modelPath,modelPath1) {
         new NRRDLoader().load(modelPath, function (volume) {
             const texture = new THREE.DataTexture3D(volume.data, volume.xLength, volume.yLength, volume.zLength);
             texture.format = THREE.RedFormat;
@@ -139,7 +140,50 @@
             geometry.translate(volume.xLength / 2 - 0.5, volume.yLength / 2 - 0.5, volume.zLength / 2 - 0.5);
 
             const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.x=100
             scene.add(mesh);
+
+            render();
+        });
+
+        new NRRDLoader().load(modelPath1, function (volume) {
+            const texture = new THREE.DataTexture3D(volume.data, volume.xLength, volume.yLength, volume.zLength);
+            texture.format = THREE.RedFormat;
+            texture.type = THREE.FloatType;
+            texture.minFilter = texture.magFilter = THREE.LinearFilter;
+            texture.unpackAlignment = 1;
+
+            // Colormap textures
+            cmtextures = {
+                red: new THREE.TextureLoader().load('./three/examples/textures/orange.png', render)
+            };
+
+            // Material
+            const shader = VolumeRenderShader1;
+
+            const uniforms = THREE.UniformsUtils.clone(shader.uniforms);
+
+            uniforms["u_data"].value = texture;
+            uniforms["u_size"].value.set(volume.xLength, volume.yLength, volume.zLength);
+            uniforms["u_clim"].value.set(volconfig.clim1, volconfig.clim2);
+            uniforms["u_renderstyle"].value = 1; // 1: ISO
+            uniforms["u_renderthreshold"].value = volconfig.isothreshold; // For ISO renderstyle
+            uniforms["u_cmdata"].value = cmtextures[volconfig.colormap];
+
+            material = new THREE.ShaderMaterial({
+                uniforms: uniforms,
+                vertexShader: shader.vertexShader,
+                fragmentShader: shader.fragmentShader,
+                side: THREE.BackSide // The volume shader uses the backface as its "reference point"
+            });
+
+            // THREE.Mesh
+            const geometry = new THREE.BoxGeometry(volume.xLength, volume.yLength, volume.zLength);
+            geometry.translate(volume.xLength / 2 - 0.5, volume.yLength / 2 - 0.5, volume.zLength / 2 - 0.5);
+
+            const mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+            mesh.position.x=-100
 
             render();
         });
